@@ -150,6 +150,9 @@
     <ClInclude Include="include\Drawing.h" />
     <ClInclude Include="include\dz.h" />
     <ClInclude Include="include\pch.h" />
+    <ClInclude Include="include\tcpconn.h" />
+    <ClInclude Include="include\geckoutils.h" />
+    <ClInclude Include="include\tcpgecko.h" />
     <ClInclude Include="include\UI.h" />
   </ItemGroup>
   <ItemGroup>
@@ -163,6 +166,7 @@
     <ClCompile Include="src\Drawing.cpp" />
     <ClCompile Include="src\dz_main.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\tcpgecko.cpp" />
     <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

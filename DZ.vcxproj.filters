@@ -51,6 +51,15 @@
     <ClInclude Include="include\dz.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\tcpconn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\geckoutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\tcpgecko.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="deps\ImGui\imgui.cpp">
@@ -84,6 +93,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\dz_main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tcpgecko.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

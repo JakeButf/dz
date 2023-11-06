@@ -1,5 +1,8 @@
 #include "../include/UI.h"
 
+// Link with Ws2_32.lib
+#pragma comment(lib, "Ws2_32.lib")
+
 #ifdef _WINDLL
 
 HANDLE hCurrentUIThread = nullptr;
