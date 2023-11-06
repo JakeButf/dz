@@ -29,7 +29,39 @@ public:
         Close();
         WSACleanup();
     }
+public:
+    // Method to read data from the connection
+    void GeckoRead(std::vector<char>& buffer, uint32_t nobytes, uint32_t& bytesRead) {
+        bytesRead = 0;
 
+        if (socket_fd == INVALID_SOCKET) {
+            throw std::runtime_error("Not connected.");
+        }
+
+        int offset = 0;
+        buffer.resize(nobytes);
+
+        while (nobytes > 0) {
+            int result = recv(socket_fd, buffer.data() + offset, nobytes, 0);
+            if (result > 0) {
+                bytesRead += static_cast<uint32_t>(result);
+                offset += result;
+                nobytes -= result;
+            }
+            else if (result == 0) {
+                throw std::runtime_error("Connection closed by peer.");
+            }
+            else {
+                int error_code = WSAGetLastError();
+                if (error_code == WSAEWOULDBLOCK) {
+                    // Handle non-blocking case as needed.
+                }
+                else {
+                    throw std::runtime_error("recv failed: " + std::to_string(error_code));
+                }
+            }
+        }
+    }
     // Method to establish a connection to the server
     void Connect() {
         Close();  // Ensure any existing connection is closed first
@@ -71,27 +103,7 @@ public:
         }
     }
 
-    // Method to read data from the connection
-    void Read(std::vector<char>& buffer, uint32_t nobytes, uint32_t& bytesRead) {
-        bytesRead = 0;
-
-        if (socket_fd == INVALID_SOCKET) {
-            throw std::runtime_error("Not connected.");
-        }
-
-        buffer.resize(nobytes);
-        // Receive data from the server
-        int result = recv(socket_fd, buffer.data(), nobytes, 0);
-        if (result > 0) {
-            bytesRead = static_cast<uint32_t>(result);
-        }
-        else if (result == 0) {
-            throw std::runtime_error("Connection closed by peer.");
-        }
-        else {
-            throw std::runtime_error("recv failed: " + std::to_string(WSAGetLastError()));
-        }
-    }
+    
 
     // Method to send data to the connection
     void Write(const std::vector<char>& buffer, int nobytes, uint32_t& bytesWritten) {

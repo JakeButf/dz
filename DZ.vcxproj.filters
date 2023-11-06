@@ -60,6 +60,9 @@
     <ClInclude Include="include\tcpgecko.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\twwhd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="deps\ImGui\imgui.cpp">

@@ -59,11 +59,15 @@ void TCPGecko::sendCommand(const std::vector<uint8_t>& command) {
 }
 
 std::vector<uint8_t> TCPGecko::receiveData(size_t size) {
-    std::vector<uint8_t> buffer(size);
+    std::vector<char> charBuffer(size); // Directly create a char vector of the correct size.
     uint32_t bytesRead = 0;
-    std::vector<char> charBuffer(buffer.begin(), buffer.end());
-    tcpConn.Read(charBuffer, size, bytesRead);
-    buffer = std::vector<uint8_t>(charBuffer.begin(), charBuffer.begin() + bytesRead);
+
+    // Assuming GeckoRead is analogous to Read and will populate charBuffer with data
+    tcpConn.GeckoRead(charBuffer, size, bytesRead);
+
+    // Now, create a uint8_t vector from the charBuffer contents up to bytesRead.
+    // This also handles the case if bytesRead < size, i.e., less data was read.
+    std::vector<uint8_t> buffer(charBuffer.begin(), charBuffer.begin() + bytesRead);
 
     return buffer;
 }

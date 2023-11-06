@@ -1,5 +1,6 @@
 #include "../include/UI.h"
 #include "../include/Drawing.h"
+#include "../include/dz.h"
 
 ID3D11Device* UI::pd3dDevice = nullptr;
 ID3D11DeviceContext* UI::pd3dDeviceContext = nullptr;
@@ -229,6 +230,9 @@ void UI::Render()
     CleanupDeviceD3D();
     ::DestroyWindow(hwnd);
     ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+
+    //DZ Freeing
+    DZ_DisposeMainWindow();
 
     #ifdef _WINDLL
     CreateThread(nullptr, NULL, (LPTHREAD_START_ROUTINE)FreeLibrary, hCurrentModule, NULL, nullptr);
