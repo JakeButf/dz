@@ -2,6 +2,7 @@
 #include "../include/Drawing.h"
 #include "../include/tcpgecko.h"
 #include <future>
+#include <string>
 
 static TCPGecko* gecko = nullptr;
 static bool isConnected = false;
@@ -86,6 +87,7 @@ void DZ_DrawMainWindow()
 		}
 
 		ImGui::Text(connectionStatus);
+		
 	}
 #pragma endregion
 #pragma region Watches
@@ -175,13 +177,21 @@ uint32_t StringToUint32(const std::string& str)
 	return static_cast<uint32_t>(address);
 }
 
+void uint32ToCharArray(uint32_t value, char* array) 
+{
+	array[0] = (value >> 24) & 0xFF; 
+	array[1] = (value >> 16) & 0xFF; 
+	array[2] = (value >> 8) & 0xFF; 
+	array[3] = value & 0xFF;       
+}
+
 void FetchValueAsync(uint32_t address)
 {
 	// Initialize the future object for this address if not already fetching.
 	auto& watchValue = watchValues[address];
 	if (!watchValue.future.valid()) { // Start the fetch only if it's not already fetching.
 		watchValue.future = std::async(std::launch::async, [address] {
-			return gecko->peek(address);
+			return gecko->peekmem(address);
 			});
 	}
 }

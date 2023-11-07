@@ -8,7 +8,7 @@ constexpr char POKE_COMMAND = 0x01;
 constexpr char PEEK_COMMAND = 0x02;
 
 TCPGecko::TCPGecko(const std::string& ip, int port)
-    : tcpConn(ip, port), connected(false), cancelDump(false) {
+    : tcpConn(ip, port), connected(false) {
 }
 
 TCPGecko::~TCPGecko() {
@@ -35,78 +35,24 @@ void TCPGecko::Disconnect() {
     }
 }
 
-void TCPGecko::poke(uint32_t address, uint32_t value) {
-    if (!connected) {
-        throw std::runtime_error("Not connected to Gecko");
+uint32_t TCPGecko::peekmem(uint32_t address)
+{
+    address &= 0xFFFFFFFC; //align address
+
+    if (!tcpConn.ValidAddress(address))
+        return -1; //invalid address
+
+    uint32_t value = 0;
+    uint8_t buffer[sizeof(uint32_t)];
+
+    if (tcpConn.Read(address, sizeof(uint32_t), buffer))
+    {
+        memcpy(&value, buffer, sizeof(value));
+        value = ByteSwap::Swap(value);
     }
-    auto command = buildPokeCommand(address, value);
-    sendCommand(command);
-}
-
-uint32_t TCPGecko::peek(uint32_t address) {
-    if (!connected) {
-        throw std::runtime_error("Not connected to Gecko");
+    else {
+        std::cerr << "Failed to read at address" << std::hex << address << std::endl;
+        return -2; //fail to read
     }
-    auto command = buildPeekCommand(address);
-    sendCommand(command);
-    auto data = receiveData(sizeof(uint32_t));
-    return ByteSwap::Swap(*reinterpret_cast<uint32_t*>(data.data()));
-}
-
-void TCPGecko::sendCommand(const std::vector<uint8_t>& command) {
-    uint32_t bytesWritten = 0;
-    tcpConn.Write(std::vector<char>(command.begin(), command.end()), command.size(), bytesWritten);
-}
-
-std::vector<uint8_t> TCPGecko::receiveData(size_t size) {
-    std::vector<char> charBuffer(size); // Directly create a char vector of the correct size.
-    uint32_t bytesRead = 0;
-
-    // Assuming GeckoRead is analogous to Read and will populate charBuffer with data
-    tcpConn.GeckoRead(charBuffer, size, bytesRead);
-
-    // Now, create a uint8_t vector from the charBuffer contents up to bytesRead.
-    // This also handles the case if bytesRead < size, i.e., less data was read.
-    std::vector<uint8_t> buffer(charBuffer.begin(), charBuffer.begin() + bytesRead);
-
-    return buffer;
-}
-
-std::vector<uint8_t> TCPGecko::buildPokeCommand(uint32_t address, uint32_t value) {
-    std::vector<uint8_t> command;
-    command.push_back(POKE_COMMAND); // The poke command identifier
-
-    // Convert address and value to big endian and split into bytes
-    uint32_t bigEndianAddress = ByteSwap::Swap(address);
-    uint32_t bigEndianValue = ByteSwap::Swap(value);
-
-    // Add the address bytes to the command vector
-    command.push_back(static_cast<uint8_t>((bigEndianAddress >> 24) & 0xFF));
-    command.push_back(static_cast<uint8_t>((bigEndianAddress >> 16) & 0xFF));
-    command.push_back(static_cast<uint8_t>((bigEndianAddress >> 8) & 0xFF));
-    command.push_back(static_cast<uint8_t>(bigEndianAddress & 0xFF));
-
-    // Add the value bytes to the command vector
-    command.push_back(static_cast<uint8_t>((bigEndianValue >> 24) & 0xFF));
-    command.push_back(static_cast<uint8_t>((bigEndianValue >> 16) & 0xFF));
-    command.push_back(static_cast<uint8_t>((bigEndianValue >> 8) & 0xFF));
-    command.push_back(static_cast<uint8_t>(bigEndianValue & 0xFF));
-
-    return command;
-}
-
-std::vector<uint8_t> TCPGecko::buildPeekCommand(uint32_t address) {
-    std::vector<uint8_t> command;
-    command.push_back(PEEK_COMMAND); // The peek command identifier
-
-    // Convert address to big endian and split into bytes
-    uint32_t bigEndianAddress = ByteSwap::Swap(address);
-
-    // Add the address bytes to the command vector
-    command.push_back(static_cast<uint8_t>((bigEndianAddress >> 24) & 0xFF));
-    command.push_back(static_cast<uint8_t>((bigEndianAddress >> 16) & 0xFF));
-    command.push_back(static_cast<uint8_t>((bigEndianAddress >> 8) & 0xFF));
-    command.push_back(static_cast<uint8_t>(bigEndianAddress & 0xFF));
-
-    return command;
+    return value;
 }

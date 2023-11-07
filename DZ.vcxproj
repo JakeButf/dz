@@ -185,6 +185,7 @@
     <ClCompile Include="src\Drawing.cpp" />
     <ClCompile Include="src\dz_main.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\tcpconn.cpp" />
     <ClCompile Include="src\tcpgecko.cpp" />
     <ClCompile Include="src\UI.cpp" />
   </ItemGroup>

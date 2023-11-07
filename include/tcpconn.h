@@ -2,10 +2,24 @@
 #define TCPCONN_H
 
 #include "pch.h"
+#include "geckoutils.h"
 
 #include <iostream>
 #include <vector>
 #include <string>
+
+enum class AddressType {
+    Ex, Rw, Ro, Unknown
+};
+
+struct AddressRange {
+    AddressType type;
+    uint32_t start;
+    uint32_t end;
+
+    AddressRange(AddressType type, uint32_t start, uint32_t end)
+        : type(type), start(start), end(end) {}
+};
 
 class TcpConn {
 private:
@@ -13,7 +27,19 @@ private:
     std::string host;  // The hostname or IP to connect to
     int port;          // The port number to connect to
 
+    static constexpr bool AddressDebug = false;
+
 public:
+    const uint32_t packetsize = 0x400;
+    const uint8_t cmd_poke08 = 0x01;
+    const uint8_t cmd_poke16 = 0x02;
+    const uint8_t cmd_pokemem = 0x03;
+    const uint8_t cmd_readmem = 0x04;
+    const uint8_t cmd_writekern = 0x0b;
+    const uint8_t cmd_readkern = 0x0c;
+    const uint8_t cmd_os_version = 0x9A;
+    static std::vector<AddressRange> ValidAreas;
+
     // Constructor to initialize the connection with a host and port
     TcpConn(const std::string& host, int port) : host(host), port(port), socket_fd(INVALID_SOCKET) {
         // Initialize Winsock
@@ -30,37 +56,59 @@ public:
         WSACleanup();
     }
 public:
+    
     // Method to read data from the connection
-    void GeckoRead(std::vector<char>& buffer, uint32_t nobytes, uint32_t& bytesRead) {
-        bytesRead = 0;
+    bool Read(uint32_t startAddress, uint32_t length, uint8_t* buffer)
+    {
+        if (socket_fd == INVALID_SOCKET) // Check for valid socket
+            return false;
 
-        if (socket_fd == INVALID_SOCKET) {
-            throw std::runtime_error("Not connected.");
+        // Calculate end address
+        uint32_t endAddress = startAddress + length; // endAddress is exclusive
+
+        // Send the cmd_readmem command byte first
+        uint8_t cmd = cmd_readmem;
+        if (send(socket_fd, (const char*)&cmd, sizeof(cmd), 0) != sizeof(cmd))
+        {
+            std::cerr << "Failed to send read command to Wii U." << std::endl;
+            return false;
         }
 
-        int offset = 0;
-        buffer.resize(nobytes);
+        // Now send the start and end addresses as an 8-byte packet
+        uint64_t addressRange = ((uint64_t)ByteSwap::Swap(endAddress) << 32) | ByteSwap::Swap(startAddress);
 
-        while (nobytes > 0) {
-            int result = recv(socket_fd, buffer.data() + offset, nobytes, 0);
-            if (result > 0) {
-                bytesRead += static_cast<uint32_t>(result);
-                offset += result;
-                nobytes -= result;
-            }
-            else if (result == 0) {
-                throw std::runtime_error("Connection closed by peer.");
-            }
-            else {
-                int error_code = WSAGetLastError();
-                if (error_code == WSAEWOULDBLOCK) {
-                    // Handle non-blocking case as needed.
-                }
-                else {
-                    throw std::runtime_error("recv failed: " + std::to_string(error_code));
-                }
-            }
+        if (send(socket_fd, (const char*)&addressRange, sizeof(addressRange), 0) != sizeof(addressRange))
+        {
+            std::cerr << "Failed to send address range to Wii U." << std::endl;
+            return false;
         }
+
+        // Now receive the data
+        int totalBytesReceived = 0;
+        while (totalBytesReceived < length) {
+            int bytesReceived = recv(socket_fd, (char*)&buffer[totalBytesReceived], length - totalBytesReceived, 0);
+            if (bytesReceived == SOCKET_ERROR)
+            {
+                std::cerr << "Failed to receive data." << std::endl;
+                return false;
+            }
+            totalBytesReceived += bytesReceived;
+        }
+        return true;
+    }
+
+    bool ReadInChunks(uint32_t address, uint32_t totalLength, uint8_t* buffer)
+    {
+        while (totalLength > 0) {
+            uint32_t chunkSize = totalLength > packetsize ? packetsize : totalLength;
+            if (!Read(address, chunkSize, buffer)) {
+                return false; // Failed to read memory
+            }
+            buffer += chunkSize;         // Move the buffer pointer forward
+            address += chunkSize;        // Move to the next address chunk
+            totalLength -= chunkSize;    // Decrease the remaining length
+        }
+        return true;
     }
     // Method to establish a connection to the server
     void Connect() {
@@ -105,20 +153,36 @@ public:
 
     
 
-    // Method to send data to the connection
-    void Write(const std::vector<char>& buffer, int nobytes, uint32_t& bytesWritten) {
-        bytesWritten = 0;
+    static bool ValidAddress(uint32_t address) {
+        return ValidAddressD(address, AddressDebug);
+    }
 
-        if (socket_fd == INVALID_SOCKET) {
-            throw std::runtime_error("Not connected.");
+    static bool ValidRange(uint32_t start, uint32_t end) {
+        return ValidRangeD(start, end, AddressDebug);
+    }
+
+    static bool ValidAddressD(uint32_t address, bool debug) {
+        return debug || RangeCheckId(address) >= 0;
+    }
+
+    static bool ValidRangeD(uint32_t start, uint32_t end, bool debug) {
+        return debug || RangeCheckId(start) == RangeCheckId(end - 1);
+    }
+
+    static AddressType RangeCheck(uint32_t address) {
+        int id = RangeCheckId(address);
+        return id == -1 ? AddressType::Unknown : ValidAreas[id].type;
+    }
+
+    static int RangeCheckId(uint32_t address) {
+        for (size_t i = 0; i < ValidAreas.size(); ++i) {
+            const auto& range = ValidAreas[i];
+            if (address >= range.start && address < range.end) {
+                return static_cast<int>(i);
+            }
         }
 
-        // Send data to the server
-        int result = send(socket_fd, buffer.data(), nobytes, 0);
-        if (result == SOCKET_ERROR) {
-            throw std::runtime_error("send failed: " + std::to_string(WSAGetLastError()));
-        }
-        bytesWritten = static_cast<uint32_t>(result);
+        return -1;
     }
 };
 #endif

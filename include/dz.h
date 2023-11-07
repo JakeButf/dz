@@ -14,5 +14,6 @@ void DZ_DrawWatchesWindow();
 void FetchValueAsync(uint32_t address);
 void UpdateValue(uint32_t address);
 
+void uint32ToCharArray(uint32_t value, char* array);
 uint32_t StringToUint32(const std::string& str);
 #endif
