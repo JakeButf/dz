@@ -3,6 +3,11 @@
 #include "../include/tcpgecko.h"
 #include <future>
 #include <string>
+#include <mutex>
+#include <condition_variable>
+#include <map>
+#include <chrono>
+#include <thread>
 
 static TCPGecko* gecko = nullptr;
 static bool isConnected = false;
@@ -10,26 +15,10 @@ static char ipBuffer[16] = "192.168.4.57";
 static const char* connectionStatus = "Status: Awaiting Connection...";
 static const char* connectButton = "Connect";
 
-//Watches
-struct watchesWindow_Watch {
-	uint32_t address;
-	std::string type;
-	std::string name;
-};
+//watches
+//debug
+static bool debug_showWindow = false;
 
-struct watchesWindow_WatchValue {
-	std::future<std::uint32_t> future;
-	std::uint32_t lastKnown;
-};
-std::map<uint32_t, watchesWindow_WatchValue> watchValues;
-
-std::vector<watchesWindow_Watch> watchesWindow_watches;
-
-char watchesWindow_addressInputBuffer[128];
-char watchesWindow_nameInputBuffer[128];
-const char* watchesWindow_variableTypes[] = { "Int", "Float", "Double", "String", "Bool" };
-int watchesWindow_currentTypeIndex = 0;
-static bool watchesWindow_show = false;
 
 void DZ_GeckoConnect(std::string wiiuip)
 {
@@ -91,84 +80,101 @@ void DZ_DrawMainWindow()
 	}
 #pragma endregion
 #pragma region Watches
-	if (ImGui::Button("Watches"))
-		watchesWindow_show = !watchesWindow_show;
-	if (watchesWindow_show)
-	{
-		DZ_DrawWatchesWindow();
-	}
+	if (ImGui::Button("Watches")) {/*unimplemented*/ }
+#pragma endregion
+#pragma region Debug
+    if (ImGui::Button("Debug"))
+        debug_showWindow = !debug_showWindow;
+    if (debug_showWindow)
+        DZ_DrawDebugWindow();
+#pragma endregion
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-}
-
-void DZ_DrawWatchesWindow()
-{
-	ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
-	if (ImGui::Begin("DZ: Watches", &watchesWindow_show)) {
-
-		ImGui::InputText("Name", watchesWindow_nameInputBuffer, IM_ARRAYSIZE(watchesWindow_nameInputBuffer));
-		ImGui::InputText("Address (hex)", watchesWindow_addressInputBuffer, IM_ARRAYSIZE(watchesWindow_addressInputBuffer));
-		ImGui::Combo("Value Type", &watchesWindow_currentTypeIndex, watchesWindow_variableTypes, IM_ARRAYSIZE(watchesWindow_variableTypes));
-
-		if (ImGui::Button("Add Watch") && watchesWindow_addressInputBuffer[0] != '\0' && watchesWindow_nameInputBuffer[0] != '\0') {
-			try {
-				uint32_t address = StringToUint32(watchesWindow_addressInputBuffer);
-				watchesWindow_watches.push_back({ address, watchesWindow_variableTypes[watchesWindow_currentTypeIndex], watchesWindow_nameInputBuffer });
-				watchesWindow_addressInputBuffer[0] = '\0'; // Clear the address buffer after adding
-				watchesWindow_nameInputBuffer[0] = '\0';    // Clear the name buffer after adding
-			}
-			catch (const std::invalid_argument& ia) {
-				// Handle invalid input (non-hexadecimal input)
-			}
-			catch (const std::out_of_range& oor) {
-				// Handle out of range input
-			}
-		}
-
-		ImGui::Separator();
-
-		if (!watchesWindow_watches.empty()) {
-			ImGui::BeginChild("Watches List", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
-
-			for (size_t i = 0; i < watchesWindow_watches.size(); ) {
-				const auto& watch = watchesWindow_watches[i];
-				ImGui::PushID(i); // Ensure unique ID for widgets
-				ImGui::Text("%s:", watchesWindow_watches[i].name.c_str());
-				ImGui::SameLine();
-
-				FetchValueAsync(watch.address);
-				UpdateValue(watch.address);
-
-				// Retrieve the watch value.
-				const auto& watchValue = watchValues[watch.address];
-				if (watchValue.future.valid()) {
-					ImGui::Text("Value: %u", watchValue.lastKnown);
-				}
-				else {
-					ImGui::Text("Value: Loading...");
-				}
-
-				ImGui::SameLine();
-				if (ImGui::Button("Delete")) {
-					watchesWindow_watches.erase(watchesWindow_watches.begin() + i);
-					// Do not increment 'i' as the current item is removed
-				}
-				else {
-					++i; // Only increment 'i' if the current item was not removed
-				}
-				ImGui::PopID();
-			}
-
-			ImGui::EndChild();
-		}
-	}
-	ImGui::End();
 }
 
 void DZ_DisposeMainWindow()
 {
 	if (gecko)
 		DZ_GeckoDisconnect();
+}
+
+void DZ_DrawDebugWindow()
+{
+    static char debugAddressInput[128] = "";
+    static const char* debugSizes[] = { "First 8 bits", "First 16 bits", "Last 8 bits", "Last 16 bits", "32 bits" };
+    static int currentDebugSize = 4; // Default to 32 bit
+    static uint32_t debugValue = 0;
+
+    ImGui::SetNextWindowSize(ImVec2(400, 155), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("DZ: Debug", nullptr)) {
+        ImGui::InputText("Address (hex)", debugAddressInput, IM_ARRAYSIZE(debugAddressInput));
+
+        // Drop-down for selecting size of data to peek
+        if (ImGui::BeginCombo("View", debugSizes[currentDebugSize])) {
+            for (int i = 0; i < IM_ARRAYSIZE(debugSizes); i++) {
+                bool isSelected = (currentDebugSize == i);
+                if (ImGui::Selectable(debugSizes[i], isSelected)) {
+                    currentDebugSize = i;
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::Button("Peek")) {
+            // Validate input and perform the memory peek
+            if (debugAddressInput[0] != '\0') {
+                uint32_t address = StringToUint32(debugAddressInput);
+                debugValue = gecko->peekmem(address);
+            }
+        }
+
+        // Display the peeked value in different formats
+        ImGui::Separator();
+        uint8_t firstByte = static_cast<uint8_t>((debugValue >> 24) & 0xFF);
+        uint16_t firstTwoBytes = static_cast<uint16_t>((debugValue >> 16) & 0xFFFF);
+        uint8_t lastByte = static_cast<uint8_t>(debugValue & 0xFF);
+        uint16_t lastTwoBytes = static_cast<uint16_t>(debugValue & 0xFFFF);
+
+        switch (currentDebugSize) {
+        case 0: // First 8 bits
+            ImGui::Text("INT: %d", firstByte);
+            ImGui::Text("HEX: 0x%02X", firstByte);
+            ImGui::Text("STRING: %c", static_cast<char>(firstByte));
+            break;
+        case 1: // First 16 bits
+            ImGui::Text("INT: %d", firstTwoBytes);
+            ImGui::Text("HEX: 0x%04X", firstTwoBytes);
+            // Convert to ASCII characters if applicable
+            break;
+        case 2: // Last 8 bits
+            ImGui::Text("INT: %d", lastByte);
+            ImGui::Text("HEX: 0x%02X", lastByte);
+            ImGui::Text("STRING: %c", static_cast<char>(lastByte));
+            break;
+        case 3: // Last 16 bits
+            ImGui::Text("INT: %d", lastTwoBytes);
+            ImGui::Text("HEX: 0x%04X", lastTwoBytes);
+            // Convert to ASCII characters if applicable
+            break;
+        case 4: // 32 bits
+            // Display as 32-bit integer, hex, and string (if applicable)
+            ImGui::Text("INT: %d", static_cast<int>(debugValue));
+            ImGui::Text("HEX: 0x%08X", debugValue);
+            char str[5] = {
+                static_cast<char>((debugValue >> 24) & 0xFF),
+                static_cast<char>((debugValue >> 16) & 0xFF),
+                static_cast<char>((debugValue >> 8) & 0xFF),
+                static_cast<char>(debugValue & 0xFF),
+                '\0'
+            };
+            ImGui::Text("STRING: %s", str);
+            break;
+        }
+    }
+    ImGui::End();
 }
 
 uint32_t StringToUint32(const std::string& str)
@@ -183,25 +189,4 @@ void uint32ToCharArray(uint32_t value, char* array)
 	array[1] = (value >> 16) & 0xFF; 
 	array[2] = (value >> 8) & 0xFF; 
 	array[3] = value & 0xFF;       
-}
-
-void FetchValueAsync(uint32_t address)
-{
-	// Initialize the future object for this address if not already fetching.
-	auto& watchValue = watchValues[address];
-	if (!watchValue.future.valid()) { // Start the fetch only if it's not already fetching.
-		watchValue.future = std::async(std::launch::async, [address] {
-			return gecko->peekmem(address);
-			});
-	}
-}
-
-void UpdateValue(uint32_t address)
-{
-	auto& watchValue = watchValues[address];
-	if (watchValue.future.valid() &&
-		watchValue.future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-		// The future is ready, get the result and update lastKnown.
-		watchValue.lastKnown = watchValue.future.get();
-	}
 }

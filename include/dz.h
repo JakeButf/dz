@@ -9,10 +9,7 @@ void DZ_GeckoDisconnect();
 void DZ_DrawMainWindow();
 void DZ_DisposeMainWindow();
 
-void DZ_DrawWatchesWindow();
-
-void FetchValueAsync(uint32_t address);
-void UpdateValue(uint32_t address);
+void DZ_DrawDebugWindow();
 
 void uint32ToCharArray(uint32_t value, char* array);
 uint32_t StringToUint32(const std::string& str);

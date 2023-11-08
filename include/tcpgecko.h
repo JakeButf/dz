@@ -4,11 +4,15 @@
 #include "tcpconn.h"
 #include <cstdint>
 #include <string>
+#include <mutex>
 
 class TCPGecko {
 public:
     TCPGecko(const std::string& ip, int port);
     ~TCPGecko();
+    static std::mutex peekmem_mutex;
+    static std::condition_variable peekmem_cv;
+    static bool isPeekPending;
 
     bool Connect();
     void Disconnect();

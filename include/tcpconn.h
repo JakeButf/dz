@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <mutex>
 
 enum class AddressType {
     Ex, Rw, Ro, Unknown
@@ -82,11 +83,29 @@ public:
             std::cerr << "Failed to send address range to Wii U." << std::endl;
             return false;
         }
+        /*
+        Receive the Command Byte? from TCP Gecko.
+        I'm not actually sure if this is the command byte, but Gecko is sending 5 bytes for a value that should only be 4 bytes
+        The reason I assume this is the command byte is because we also send 5 bytes, 1 byte for the command and 4 for the address.
+        So I don't think it's crazy that this is doing something similar. However, more research into what this byte is actually
+        trying to communicate would be great (perhaps when performing mempokes and kernal pokes?
+
+        This code here seperates the command byte from the data byte.
+
+        TLDR: TODO: research first byte of TCP Gecko response
+        */
+        uint8_t commandByte;
+        int bytesReceived = recv(socket_fd, (char*)&commandByte, sizeof(commandByte), 0);
+        if (bytesReceived == SOCKET_ERROR || bytesReceived != sizeof(commandByte))
+        {
+            std::cerr << "Failed to receive command byte." << std::endl;
+            return false;
+        }
 
         // Now receive the data
         int totalBytesReceived = 0;
         while (totalBytesReceived < length) {
-            int bytesReceived = recv(socket_fd, (char*)&buffer[totalBytesReceived], length - totalBytesReceived, 0);
+            bytesReceived = recv(socket_fd, (char*)&buffer[totalBytesReceived], length - totalBytesReceived, 0);
             if (bytesReceived == SOCKET_ERROR)
             {
                 std::cerr << "Failed to receive data." << std::endl;
