@@ -70,3 +70,43 @@ uint32_t TCPGecko::peekmem(uint32_t address)
     address = NULL;
     return value;
 }
+
+uint32_t TCPGecko::peekmem8(uint32_t address)
+{
+    uint32_t a_address = address & 0xFFFFFFFC; //align address
+    uint32_t value = TCPGecko::peekmem(a_address);
+    
+    int byteOffset = address & 0x03;
+    uint8_t desiredByte;
+
+    switch (byteOffset)
+    {
+        case 0:
+            desiredByte = (value >> 24) & 0xFF;
+            break;
+        case 1:
+            desiredByte = (value >> 16) & 0xFF;
+            break;
+        case 2:
+            desiredByte = (value >> 8) & 0xFF;
+            break;
+        case 3:
+            desiredByte = value & 0xFF;
+            break;
+    }
+    return desiredByte;
+}
+
+uint8_t TCPGecko::get8Bit(uint32_t value, int index)
+{
+    if (index < 0 || index > 3)
+        return 0;
+    return (value >> (8 * index)) & 0xFF;
+}
+uint16_t TCPGecko::get16Bit(uint32_t value, bool last)
+{
+    if (last)
+        return static_cast<uint16_t>(value & 0xFFFF);
+    else 
+        return static_cast<uint16_t>((value >> 16) & 0xFFFF);
+}

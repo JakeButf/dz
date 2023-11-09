@@ -1,6 +1,7 @@
 #include "../include/dz.h"
 #include "../include/Drawing.h"
 #include "../include/tcpgecko.h"
+#include "../include/twwhd.h"
 #include <future>
 #include <string>
 #include <mutex>
@@ -15,7 +16,29 @@ static char ipBuffer[16] = "192.168.4.57";
 static const char* connectionStatus = "Status: Awaiting Connection...";
 static const char* connectButton = "Connect";
 
-//watches
+//inventory editor
+static bool invedit_showWindow = false;
+
+static bool hasTelescope = false;
+static bool hasWindWaker = false;
+static bool hasGrapplingHook = false;
+static bool hasSpoilsBag = false;
+static bool hasBoomerang = false;
+static bool hasDekuLeaf = false;
+static bool hasTingleBottle = false;
+static bool hasPictoBox = false;
+static bool hasIronBoots = false;
+static bool hasMagicArmor = false;
+static bool hasBaitBag = false;
+static bool hasHerosBow = false;
+static bool hasBombs = false;
+static bool hasBottle1 = false;
+static bool hasBottle2 = false;
+static bool hasBottle3 = false;
+static bool hasBottle4 = false;
+static bool hasDeliveryBag = false;
+static bool hasHookshot = false;
+static bool hasSkullHammer = false;
 //debug
 static bool debug_showWindow = false;
 
@@ -76,7 +99,7 @@ void DZ_DrawMainWindow()
 		}
 
 		ImGui::Text(connectionStatus);
-		
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	}
 #pragma endregion
 #pragma region Watches
@@ -88,8 +111,15 @@ void DZ_DrawMainWindow()
     if (debug_showWindow)
         DZ_DrawDebugWindow();
 #pragma endregion
-
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+#pragma region Inventory Editor
+    if (ImGui::Button("Inventory Editor"))
+    {
+        DZ_InventoryEditWindow_CheckIfHasItems();
+        invedit_showWindow = !invedit_showWindow;
+    } 
+    if (invedit_showWindow)
+        DZ_DrawInventoryEditWindow();
+#pragma endregion
 }
 
 void DZ_DisposeMainWindow()
@@ -101,7 +131,7 @@ void DZ_DisposeMainWindow()
 void DZ_DrawDebugWindow()
 {
     static char debugAddressInput[128] = "";
-    static const char* debugSizes[] = { "First 8 bits", "First 16 bits", "Last 8 bits", "Last 16 bits", "32 bits" };
+    static const char* debugSizes[] = { "32-Bit", "8-Bit"};
     static int currentDebugSize = 4; // Default to 32 bit
     static uint32_t debugValue = 0;
 
@@ -127,7 +157,10 @@ void DZ_DrawDebugWindow()
             // Validate input and perform the memory peek
             if (debugAddressInput[0] != '\0') {
                 uint32_t address = StringToUint32(debugAddressInput);
-                debugValue = gecko->peekmem(address);
+                if (currentDebugSize == 0)
+                    debugValue = gecko->peekmem(address);
+                else
+                    debugValue = gecko->peekmem8(address);
             }
         }
 
@@ -138,43 +171,90 @@ void DZ_DrawDebugWindow()
         uint8_t lastByte = static_cast<uint8_t>(debugValue & 0xFF);
         uint16_t lastTwoBytes = static_cast<uint16_t>(debugValue & 0xFFFF);
 
-        switch (currentDebugSize) {
-        case 0: // First 8 bits
-            ImGui::Text("INT: %d", firstByte);
-            ImGui::Text("HEX: 0x%02X", firstByte);
-            ImGui::Text("STRING: %c", static_cast<char>(firstByte));
-            break;
-        case 1: // First 16 bits
-            ImGui::Text("INT: %d", firstTwoBytes);
-            ImGui::Text("HEX: 0x%04X", firstTwoBytes);
-            // Convert to ASCII characters if applicable
-            break;
-        case 2: // Last 8 bits
-            ImGui::Text("INT: %d", lastByte);
-            ImGui::Text("HEX: 0x%02X", lastByte);
-            ImGui::Text("STRING: %c", static_cast<char>(lastByte));
-            break;
-        case 3: // Last 16 bits
-            ImGui::Text("INT: %d", lastTwoBytes);
-            ImGui::Text("HEX: 0x%04X", lastTwoBytes);
-            // Convert to ASCII characters if applicable
-            break;
-        case 4: // 32 bits
-            // Display as 32-bit integer, hex, and string (if applicable)
-            ImGui::Text("INT: %d", static_cast<int>(debugValue));
-            ImGui::Text("HEX: 0x%08X", debugValue);
-            char str[5] = {
+        char str[5] = {
                 static_cast<char>((debugValue >> 24) & 0xFF),
                 static_cast<char>((debugValue >> 16) & 0xFF),
                 static_cast<char>((debugValue >> 8) & 0xFF),
                 static_cast<char>(debugValue & 0xFF),
                 '\0'
-            };
+        };
+
+        switch (currentDebugSize) {
+        case 0: // First 8 bits
+            // Display as 32-bit integer, hex, and string (if applicable)
+            ImGui::Text("INT: %d", static_cast<int>(debugValue));
+            ImGui::Text("HEX: 0x%08X", debugValue);
             ImGui::Text("STRING: %s", str);
+            break;
+        case 1: 
+            ImGui::Text("INT: %d", lastByte);
+            ImGui::Text("HEX: 0x%02X", lastByte);
+            ImGui::Text("STRING: %c", static_cast<char>(lastByte));
             break;
         }
     }
     ImGui::End();
+}
+
+void DZ_DrawInventoryEditWindow()
+{
+    ImGui::SetNextWindowSize(ImVec2(400, 155), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("DZ: Inventory Editor", nullptr))
+    {
+        ImGui::Checkbox("Telescope", &hasTelescope);
+        ImGui::SameLine();
+        ImGui::Checkbox("Wind Waker", &hasWindWaker);
+        ImGui::SameLine();
+        ImGui::Checkbox("Grappling Hook", &hasGrapplingHook);
+
+        ImGui::NewLine();
+        ImGui::Checkbox("Spoils Bag", &hasSpoilsBag);
+        ImGui::SameLine();
+        ImGui::Checkbox("Boomerang", &hasBoomerang);
+        ImGui::SameLine();
+        ImGui::Checkbox("Deku Leaf", &hasDekuLeaf);
+
+        ImGui::NewLine();
+        ImGui::Checkbox("Tingle Bottle", &hasTingleBottle);
+        ImGui::SameLine();
+        ImGui::Checkbox("Iron Boots", &hasIronBoots);
+        ImGui::SameLine();
+        ImGui::Checkbox("Magic Armor", &hasMagicArmor);
+
+        ImGui::NewLine();
+        ImGui::Checkbox("Bait Bag", &hasTingleBottle);
+        ImGui::SameLine();
+        ImGui::Checkbox("Delivery Bag", &hasIronBoots);
+        ImGui::SameLine();
+        ImGui::Checkbox("Hookshot", &hasMagicArmor);
+
+        ImGui::NewLine();
+        ImGui::Checkbox("Bombs", &hasBombs);
+        ImGui::SameLine();
+        ImGui::Checkbox("Skull Hammer", &hasSkullHammer);
+    }
+}
+
+void DZ_InventoryEditWindow_CheckIfHasItems()
+{
+    hasTelescope = gecko->peekmem8(item_slots.telescope.address) != 0xFF;
+    hasWindWaker = gecko->peekmem8(item_slots.wind_waker.address) != 0xFF;
+    hasGrapplingHook = gecko->peekmem8(item_slots.grappling_hook.address) != 0xFF;
+
+    hasSpoilsBag = gecko->peekmem8(item_slots.spoils_bag.address) != 0xFF;
+    hasBoomerang = gecko->peekmem8(item_slots.boomerang.address) != 0xFF;
+    hasDekuLeaf = gecko->peekmem8(item_slots.deku_leaf.address) != 0xFF;
+
+    hasTingleBottle = gecko->peekmem8(item_slots.tingle_bottle.address) != 0xFF;
+    hasIronBoots = gecko->peekmem8(item_slots.iron_boots.address) != 0xFF;
+    hasMagicArmor = gecko->peekmem8(item_slots.magic_armor.address) != 0xFF;
+
+    hasBaitBag = gecko->peekmem8(item_slots.bait_bag.address) != 0xFF;
+    hasDeliveryBag = gecko->peekmem8(item_slots.delivery_bag.address) != 0xFF;
+    hasHookshot = gecko->peekmem8(item_slots.hookshot.address) != 0xFF;
+
+    hasBombs = gecko->peekmem8(item_slots.bombs.address) != 0xFF;
+    hasSkullHammer = gecko->peekmem8(item_slots.skull_hammer.address) != 0xFF;
 }
 
 uint32_t StringToUint32(const std::string& str)

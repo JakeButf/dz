@@ -18,7 +18,10 @@ public:
     void Disconnect();
 
     uint32_t peekmem(uint32_t address);
+    uint32_t peekmem8(uint32_t address);
 
+    uint8_t get8Bit(uint32_t value, int index);
+    uint16_t get16Bit(uint32_t value, bool last);
 
     const uint32_t CodeHandlerStart = 0x01133000;
     const uint32_t CodeHandlerEnd = 0x01134300;
