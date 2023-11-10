@@ -110,3 +110,32 @@ uint16_t TCPGecko::get16Bit(uint32_t value, bool last)
     else 
         return static_cast<uint16_t>((value >> 16) & 0xFFFF);
 }
+
+void TCPGecko::poke32(uint32_t address, uint32_t value)
+{
+    address &= 0xFFFFFFFC; //Lower Address
+
+    uint64_t pokeVal = (((uint64_t)address << 32) | ((uint64_t)value));
+    pokeVal = ByteSwap::Swap(pokeVal);
+
+    tcpConn.Write(address, pokeVal, 3);
+}
+
+void TCPGecko::poke16(uint32_t address, uint16_t value)
+{
+    address &= 0xFFFFFFFE; //Lower Address
+
+    uint64_t pokeVal = (((uint64_t)address << 32) | ((uint64_t)value));
+    pokeVal = ByteSwap::Swap(pokeVal);
+
+    tcpConn.Write(address, pokeVal, 2);
+}
+
+void TCPGecko::poke8(uint32_t address, uint8_t value)
+{
+    uint64_t pokeVal = (((uint64_t)address << 32) | ((uint64_t)value));
+
+    pokeVal = ByteSwap::Swap(pokeVal);
+
+    tcpConn.Write(address, pokeVal, 1);
+}

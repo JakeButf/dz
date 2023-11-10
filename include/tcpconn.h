@@ -129,6 +129,40 @@ public:
         }
         return true;
     }
+
+    bool Write(uint32_t address, uint64_t value, int size) //1 = 8, 2 = 16, 3 = 32
+    {
+        if (size == 0 || size > 3)
+            return false;
+
+        uint8_t writecmd;
+        switch (size)
+        {
+            case 1:
+                writecmd = cmd_poke08;
+                break;
+            case 2:
+                writecmd = cmd_poke16;
+                break;
+            case 3:
+                writecmd = cmd_pokemem;
+                break;
+        }
+
+        if (send(socket_fd, (const char*)&writecmd, sizeof(writecmd), 0) != sizeof(writecmd))
+        {
+            std::cerr << "Failed to send read command to Wii U." << std::endl;
+            return false;
+        }
+
+        if (send(socket_fd, (const char*)&value, sizeof(value), 0) != sizeof(value))
+        {
+            std::cerr << "Failed to send address range to Wii U." << std::endl;
+            return false;
+        }
+
+        return true;
+    }
     // Method to establish a connection to the server
     void Connect() {
         Close();  // Ensure any existing connection is closed first

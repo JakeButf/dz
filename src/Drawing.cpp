@@ -2,7 +2,7 @@
 #include "../include/dz.h"
 
 LPCSTR Drawing::lpWindowName = "DZ: The Wind Waker HD Practice Tool";
-ImVec2 Drawing::vWindowSize = { 350, 200 };
+ImVec2 Drawing::vWindowSize = { 350, 300 };
 ImGuiWindowFlags Drawing::WindowFlags = 0;
 bool Drawing::bDraw = true;
 

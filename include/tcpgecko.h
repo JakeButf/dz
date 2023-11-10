@@ -20,6 +20,10 @@ public:
     uint32_t peekmem(uint32_t address);
     uint32_t peekmem8(uint32_t address);
 
+    void poke32(uint32_t address, uint32_t value);
+    void poke16(uint32_t address, uint16_t value);
+    void poke8(uint32_t address, uint8_t value);
+
     uint8_t get8Bit(uint32_t value, int index);
     uint16_t get16Bit(uint32_t value, bool last);
 

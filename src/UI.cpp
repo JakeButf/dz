@@ -1,6 +1,6 @@
 #include "../include/UI.h"
-#include "../include/Drawing.h"
 #include "../include/dz.h"
+#include "../include/Drawing.h"
 
 ID3D11Device* UI::pd3dDevice = nullptr;
 ID3D11DeviceContext* UI::pd3dDeviceContext = nullptr;

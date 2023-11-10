@@ -6,11 +6,10 @@ https://docs.google.com/spreadsheets/d/1kloHL2zQztswThTgl3zMrl1hdGh8qb9AgaZWj6Po
 Credits: Myself, BowserIsBored, CloudModding
 
 */
-#include <cstdint>
-#include <string>
-
 #ifndef TWWHD_H
 #define TWWHD_H
+#include <cstdint>
+#include <string>
 //Types
 typedef struct {
 	uint32_t address;
@@ -282,7 +281,17 @@ struct twwhd_item_slots {
     twwhd32 bottle4			        = { item_inventory_base.address + 0x11, "Bottle 4 Inventory Slot" };
     twwhd32 delivery_bag		    = { item_inventory_base.address + 0x12, "Delivery Bag Inventory Slot" };
     twwhd32 hookshot			    = { item_inventory_base.address + 0x13, "Hookshot Inventory Slot" };
-    twwhd32 skull_hammer		    = { item_inventory_base.address + 0x14, "Skull Hammer Inventory Slot" };
+    twwhd32 skull_hammer		    = { item_inventory_base.address + 0x14, "Skull Hammer Inventory Slot" };   
+};
+
+struct twwhd_equipment {
+    twwhd32 sword   = { 0x1507368E, "Sword Slot" };
+    twwhd32 shield  = { 0x1507368F, "Shield Slot" };
+};
+
+struct twwhd_quest_status {
+    twwhd32 power_bracelets     = { 0x15073690, "Power Bracelet Slot" };
+    twwhd32 heros_charm         = { 0x15073738, "Hero's Charm Slot" };
 };
 
 struct twwhd_item_amounts {
@@ -304,6 +313,8 @@ twwhd32 twwhd_get_item_value =    { 0x10976554, "Get Item Value" };
 const twwhd_item_slots item_slots;
 const twwhd_items items;
 const twwhd_item_amounts item_amounts;
+const twwhd_quest_status quest_status;
+const twwhd_equipment equipment;
 
 twwhd8 TWWHD_GetItemForSlot(twwhd32 slot)
 {
